@@ -5,6 +5,7 @@
 ### Fixed
 
 - `shodan`: automatic fallback to InternetDB when API returns 403. Returns ports, CVEs, and tags without requiring a paid Shodan plan.
+- `dns`: WHOIS warning truncated to first line, removing VeriSign boilerplate
 
 ## [1.0.0] — 2026-03-10
 

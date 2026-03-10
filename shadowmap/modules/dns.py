@@ -37,7 +37,7 @@ def get_whois(target: str) -> Dict[str, Any]:
             "org":             _scalar(w.org),
         }
     except Exception as e:
-        logger.warning(f"[whois] {target}: {e}")
+        logger.warning(f"[whois] {target}: {str(e).splitlines()[0]}")
         return {"error": str(e)}
 
 
