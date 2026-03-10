@@ -4,7 +4,7 @@ Passive infrastructure mapping and threat intelligence CLI. Given a domain or IP
 
 The HTML report includes an interactive D3.js graph of the infrastructure.
 
-![CI](https://github.com/D0m0x61/ShadowMap/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/YOUR_USERNAME/ShadowMap/actions/workflows/ci.yml/badge.svg)
 ![Python](https://img.shields.io/badge/python-3.9%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
@@ -33,7 +33,7 @@ The HTML report includes an interactive D3.js graph of the infrastructure.
 
 ```bash
 brew install python git
-git clone https://github.com/D0m0x61/ShadowMap.git
+git clone https://github.com/YOUR_USERNAME/ShadowMap.git
 cd ShadowMap
 python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt && pip install -e .
@@ -44,7 +44,7 @@ cp .env.example .env && nano .env
 
 ```bash
 sudo apt install python3 python3-pip python3-venv git -y
-git clone https://github.com/D0m0x61/ShadowMap.git
+git clone https://github.com/YOUR_USERNAME/ShadowMap.git
 cd ShadowMap
 python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt && pip install -e .
@@ -65,7 +65,7 @@ Restart, open the Ubuntu app, then follow the Linux instructions above.
 2. Install Git from https://git-scm.com/download/win
 
 ```powershell
-git clone https://github.com/D0m0x61/ShadowMap.git
+git clone https://github.com/YOUR_USERNAME/ShadowMap.git
 cd ShadowMap
 python -m venv venv && venv\Scripts\activate
 pip install -r requirements.txt && pip install -e .
@@ -82,6 +82,7 @@ copy .env.example .env && notepad .env
 | `ABUSEIPDB_API_KEY` | reputation | 1,000/day | [abuseipdb.com](https://www.abuseipdb.com/register) |
 | `GITHUB_TOKEN` | leaks | 30 req/min | [github.com/settings/tokens](https://github.com/settings/tokens) |
 | `IPINFO_TOKEN` | ip | 50k/month | [ipinfo.io](https://ipinfo.io/signup) |
+| `NVD_API_KEY` | cves | 50 req/30s | [nvd.nist.gov](https://nvd.nist.gov/developers/request-an-api-key) |
 
 No key required: crt.sh · HackerTarget · NVD · EPSS · CISA KEV
 

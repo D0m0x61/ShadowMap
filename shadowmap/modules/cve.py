@@ -1,3 +1,4 @@
+import time
 from typing import Dict, List, Optional, Set
 
 from shadowmap.config import Config
@@ -7,9 +8,17 @@ from shadowmap.utils.logger import get_logger
 
 logger  = get_logger(__name__)
 session = get_session()
-limiter = RateLimiter(Config.DELAY_NVD)
+
+# NVD rate limits: 50 req/30s with key, 5 req/10s without
+limiter = RateLimiter(Config.DELAY_NVD if Config.NVD_API_KEY else Config.DELAY_NVD_UNAUTH)
 
 _kev_cache: Optional[Set[str]] = None
+
+
+def _nvd_headers() -> Dict[str, str]:
+    if Config.NVD_API_KEY:
+        return {"apiKey": Config.NVD_API_KEY}
+    return {}
 
 
 def _kev() -> Set[str]:
@@ -46,7 +55,22 @@ def _epss(cve_ids: List[str]) -> Dict[str, float]:
 def _nvd(cve_id: str) -> Dict:
     try:
         limiter.wait()
-        resp = session.get(Config.NVD_URL, params={"cveId": cve_id}, timeout=Config.HTTP_TIMEOUT)
+        resp = session.get(
+            Config.NVD_URL,
+            params={"cveId": cve_id},
+            headers=_nvd_headers(),
+            timeout=Config.HTTP_TIMEOUT,
+        )
+        if resp.status_code == 429:
+            retry_after = int(resp.headers.get("Retry-After", 10))
+            logger.warning(f"[cve] NVD rate limit hit, waiting {retry_after}s")
+            time.sleep(retry_after)
+            resp = session.get(
+                Config.NVD_URL,
+                params={"cveId": cve_id},
+                headers=_nvd_headers(),
+                timeout=Config.HTTP_TIMEOUT,
+            )
         resp.raise_for_status()
         items = resp.json().get("vulnerabilities", [])
         if not items:
@@ -93,10 +117,13 @@ def prioritize(cve_ids: List[str]) -> List[Dict]:
     if not cve_ids:
         return []
 
+    if not Config.NVD_API_KEY:
+        logger.warning("[cve] NVD_API_KEY not set — using unauthenticated rate limit (2s/req)")
+
     logger.info(f"[cve] prioritizing {len(cve_ids)} CVEs")
-    kev          = _kev()
-    epss_scores  = _epss(cve_ids)
-    results      = []
+    kev         = _kev()
+    epss_scores = _epss(cve_ids)
+    results     = []
 
     for cve_id in cve_ids:
         details   = _nvd(cve_id)
@@ -107,10 +134,10 @@ def prioritize(cve_ids: List[str]) -> List[Dict]:
 
         results.append({
             **details,
-            "epss_score":       round(epss, 4),
-            "in_cisa_kev":      in_kev,
-            "composite_score":  composite,
-            "priority":         _priority(composite),
+            "epss_score":      round(epss, 4),
+            "in_cisa_kev":     in_kev,
+            "composite_score": composite,
+            "priority":        _priority(composite),
         })
 
     results.sort(key=lambda x: x["composite_score"], reverse=True)

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.2] — 2026-03-10
+
+### Fixed
+
+- `cves`: NVD API key support — 50 req/30s vs 5 req/10s unauthenticated; automatic 429 retry
+
 ## [1.0.1] — 2026-03-10
 
 ### Fixed

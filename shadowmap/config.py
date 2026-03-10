@@ -9,6 +9,7 @@ class Config:
     GITHUB_TOKEN: str       = os.getenv("GITHUB_TOKEN", "")
     ABUSEIPDB_API_KEY: str  = os.getenv("ABUSEIPDB_API_KEY", "")
     IPINFO_TOKEN: str       = os.getenv("IPINFO_TOKEN", "")
+    NVD_API_KEY: str        = os.getenv("NVD_API_KEY", "")
 
     CRTSH_URL: str          = "https://crt.sh"
     NVD_URL: str            = "https://services.nvd.nist.gov/rest/json/cves/2.0"
@@ -21,7 +22,8 @@ class Config:
     DELAY_DEFAULT: float    = 1.0
     DELAY_SHODAN: float     = 1.0
     DELAY_GITHUB: float     = 2.0
-    DELAY_NVD: float        = 0.6
+    DELAY_NVD: float        = 0.6   # with API key: 50 req/30s
+    DELAY_NVD_UNAUTH: float = 2.0   # without API key: 5 req/10s
     DELAY_ABUSEIPDB: float  = 1.0
     DELAY_CRTSH: float      = 1.5
 

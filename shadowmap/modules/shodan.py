@@ -9,9 +9,8 @@ logger   = get_logger(__name__)
 limiter  = RateLimiter(Config.DELAY_SHODAN)
 session  = get_session()
 
-_BANNER_MAX    = 300
-_INTERNETDB    = "https://internetdb.shodan.io"
-
+_BANNER_MAX = 300
+_INTERNETDB = "https://internetdb.shodan.io"
 
 def _api():
     try:
@@ -29,11 +28,15 @@ def _internetdb(ip: str) -> Dict:
         if resp.status_code == 404:
             return {"ip": ip, "ports": [], "vulns_from_shodan": [], "tags": [], "services": [], "source": "internetdb"}
         resp.raise_for_status()
-        data = resp.json()
+        data  = resp.json()
         ports = data.get("ports", [])
         cpes  = data.get("cpes", [])
-        services = [{"port": p, "transport": "tcp", "product": "", "version": "", "cpe": [], "banner": ""} for p in ports]
-        logger.info(f"[shodan] {ip}: {len(ports)} ports (internetdb fallback)")
+        vulns = data.get("vulns", [])
+        services = [
+            {"port": p, "transport": "tcp", "product": "", "version": "", "cpe": [], "banner": ""}
+            for p in ports
+        ]
+        logger.info(f"[shodan] {ip}: {len(ports)} ports, {len(vulns)} CVEs (internetdb)")
         return {
             "ip":                ip,
             "os":                "",
@@ -42,7 +45,7 @@ def _internetdb(ip: str) -> Dict:
             "org":               "",
             "ports":             ports,
             "services":          services,
-            "vulns_from_shodan": data.get("vulns", []),
+            "vulns_from_shodan": vulns,
             "tags":              data.get("tags", []),
             "cpes":              cpes,
             "last_update":       "",
@@ -58,7 +61,10 @@ def lookup(ip: str) -> Dict:
         return {}
     try:
         limiter.wait()
-        host = _api().host(ip)
+        host     = _api().host(ip)
+        ports    = host.get("ports", [])
+        raw_vulns = host.get("vulns", {})
+        vulns    = list(raw_vulns.keys()) if isinstance(raw_vulns, dict) else list(raw_vulns)
         services = [
             {
                 "port":      item.get("port"),
@@ -70,20 +76,29 @@ def lookup(ip: str) -> Dict:
             }
             for item in host.get("data", [])
         ]
-        logger.info(f"[shodan] {ip}: {len(host.get('ports', []))} ports")
-        return {
+        logger.info(f"[shodan] {ip}: {len(ports)} ports, {len(vulns)} CVEs")
+
+        result = {
             "ip":                ip,
             "os":                host.get("os", ""),
             "country":           host.get("country_name", ""),
             "isp":               host.get("isp", ""),
             "org":               host.get("org", ""),
-            "ports":             host.get("ports", []),
+            "ports":             ports,
             "services":          services,
-            "vulns_from_shodan": list(host.get("vulns", {}).keys()),
+            "vulns_from_shodan": vulns,
             "tags":              host.get("tags", []),
             "last_update":       host.get("last_update", ""),
             "source":            "shodan",
         }
+
+        if ports and not vulns:
+            idb = _internetdb(ip)
+            result["vulns_from_shodan"] = idb.get("vulns_from_shodan", [])
+            result["source"] = "shodan+internetdb"
+
+        return result
+
     except Exception as e:
         err = str(e)
         if "403" in err or "Access denied" in err:

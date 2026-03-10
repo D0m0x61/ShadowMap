@@ -62,6 +62,22 @@ If skipped, geolocation fields are empty but ASN data still comes from IPInfo's 
 
 ---
 
+
+## NVD
+
+**Module:** `cves` · **Free limit:** 50 req/30s (5 req/10s without key)
+
+Without a key ShadowMap still queries NVD, but at 2s per CVE — slow on targets with many vulnerabilities. The key is free and issued instantly.
+
+1. Go to https://nvd.nist.gov/developers/request-an-api-key
+2. Enter your email — key arrives within minutes
+3. Add to `.env`:
+   ```
+   NVD_API_KEY=your_key_here
+   ```
+
+---
+
 ## No-key APIs
 
 | API | Module | URL |
