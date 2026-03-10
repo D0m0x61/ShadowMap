@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.1] — 2026-03-10
+
+### Fixed
+
+- `shodan`: automatic fallback to InternetDB when API returns 403. Returns ports, CVEs, and tags without requiring a paid Shodan plan.
+
 ## [1.0.0] — 2026-03-10
 
 ### Modules
