@@ -1,149 +1,93 @@
 # ShadowMap
 
-Passive infrastructure mapping and threat intelligence CLI. Given a domain or IP, maps subdomains, DNS records, TLS certificate history, open ports via Shodan, scores CVEs using CVSS + EPSS + CISA KEV, checks IP reputation, and searches for credential leaks in public repos — without sending a packet to the target.
+CLI for passive infrastructure reconnaissance and threat intelligence. Point it at a domain or IP and it pulls subdomains, DNS records, TLS cert history, open ports, CVE scores, IP reputation, and GitHub leaks — all from public sources, nothing sent to the target.
 
-The HTML report includes an interactive D3.js graph of the infrastructure.
+Output is a self-contained HTML report with an interactive infrastructure graph, plus JSON.
 
 ![CI](https://github.com/D0m0x61/ShadowMap/actions/workflows/ci.yml/badge.svg)
 ![Python](https://img.shields.io/badge/python-3.9%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
+> This product uses the NVD API but is not endorsed or certified by the NVD.
+
 ---
 
 ## Modules
 
-| Module | Data source | API key |
+| Module | Source | Key |
 |---|---|---|
 | `whois` | python-whois, dnspython | — |
 | `subdomains` | crt.sh, HackerTarget | — |
 | `ip` | IPInfo | optional |
 | `certs` | crt.sh | — |
-| `shodan` | Shodan API | free |
-| `cves` | NVD, FIRST.org, CISA KEV | — |
+| `shodan` | Shodan API + InternetDB fallback | free |
+| `cves` | NVD, EPSS, CISA KEV | optional |
 | `reputation` | AbuseIPDB | free |
-| `leaks` | GitHub Search API | optional |
+| `leaks` | GitHub Search | optional |
 
 ---
 
-## Installation
+## Setup
 
-**Requirements:** Python 3.9+, Git
-
-### macOS
+**Python 3.9+, Git**
 
 ```bash
-brew install python git
-git clone https://github.com/YOUR_USERNAME/ShadowMap.git
+git clone https://github.com/D0m0x61/ShadowMap.git
 cd ShadowMap
 python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt && pip install -e .
-cp .env.example .env && nano .env
+cp .env.example .env
 ```
 
-### Linux (Debian / Ubuntu)
+Edit `.env` and add your API keys. On Windows use `venv\Scripts\activate` and `copy` instead of `cp`.
 
-```bash
-sudo apt install python3 python3-pip python3-venv git -y
-git clone https://github.com/YOUR_USERNAME/ShadowMap.git
-cd ShadowMap
-python3 -m venv venv && source venv/bin/activate
-pip install -r requirements.txt && pip install -e .
-cp .env.example .env && nano .env
-```
-
-### Windows — WSL (recommended)
-
-```powershell
-wsl --install
-```
-
-Restart, open the Ubuntu app, then follow the Linux instructions above.
-
-### Windows — Native
-
-1. Install Python from https://www.python.org/downloads/ — check **Add Python to PATH**
-2. Install Git from https://git-scm.com/download/win
-
-```powershell
-git clone https://github.com/YOUR_USERNAME/ShadowMap.git
-cd ShadowMap
-python -m venv venv && venv\Scripts\activate
-pip install -r requirements.txt && pip install -e .
-copy .env.example .env && notepad .env
-```
+WSL is recommended on Windows — `wsl --install` in PowerShell as admin, then follow the steps above inside Ubuntu.
 
 ---
 
 ## API Keys
 
-| Variable | Module | Free limit | Registration |
+| Variable | Module | Limit | Get it |
 |---|---|---|---|
-| `SHODAN_API_KEY` | shodan | 1 req/sec | [account.shodan.io](https://account.shodan.io/register) |
-| `ABUSEIPDB_API_KEY` | reputation | 1,000/day | [abuseipdb.com](https://www.abuseipdb.com/register) |
+| `SHODAN_API_KEY` | shodan | 1 req/s | [account.shodan.io](https://account.shodan.io/register) |
+| `ABUSEIPDB_API_KEY` | reputation | 1k/day | [abuseipdb.com](https://www.abuseipdb.com/register) |
+| `NVD_API_KEY` | cves | 50 req/30s | [nvd.nist.gov](https://nvd.nist.gov/developers/request-an-api-key) |
 | `GITHUB_TOKEN` | leaks | 30 req/min | [github.com/settings/tokens](https://github.com/settings/tokens) |
 | `IPINFO_TOKEN` | ip | 50k/month | [ipinfo.io](https://ipinfo.io/signup) |
-| `NVD_API_KEY` | cves | 50 req/30s | [nvd.nist.gov](https://nvd.nist.gov/developers/request-an-api-key) |
 
-No key required: crt.sh · HackerTarget · NVD · EPSS · CISA KEV
+No key needed: crt.sh · HackerTarget · InternetDB · EPSS · CISA KEV
 
-Full setup instructions: [docs/api_keys.md](docs/api_keys.md)
+See [docs/api_keys.md](docs/api_keys.md) for step-by-step instructions.
 
 ---
 
 ## Usage
 
 ```bash
-source venv/bin/activate       # macOS/Linux
-venv\Scripts\activate          # Windows
+source venv/bin/activate
 
 shadowmap example.com
 shadowmap example.com --modules whois subdomains certs ip
-shadowmap 203.0.113.42 --modules whois ip shodan reputation cves
+shadowmap 203.0.113.42 --modules ip shodan reputation cves
 shadowmap example.com --no-shodan --no-leaks
 shadowmap example.com --format json --output ~/Desktop/reports
-shadowmap --help
 ```
 
-Reports are saved to `./reports/` by default. Open the HTML with `open reports/*.html` on macOS.
+Reports go to `./reports/`. Open with `open reports/*.html` on macOS.
 
 ---
 
 ## CVE Scoring
 
+Each CVE gets a composite score from three independent sources:
+
 ```
 score = (CVSS/10 × 0.4) + (EPSS × 0.4) + (0.2 if in CISA KEV)
 ```
 
-- **CVSS** (NVD) — base severity
-- **EPSS** (FIRST.org) — exploitation probability in the next 30 days
-- **CISA KEV** — confirmed active exploitation
+CVSS measures intrinsic severity, EPSS the probability of exploitation in the next 30 days, CISA KEV flags vulnerabilities with confirmed active exploitation in the wild.
 
-Thresholds: `CRITICAL` ≥ 0.7 · `HIGH` ≥ 0.5 · `MEDIUM` ≥ 0.3 · `LOW` < 0.3
-
----
-
-## Structure
-
-```
-shadowmap/
-├── modules/
-│   ├── dns.py
-│   ├── subdomains.py
-│   ├── ip_enrichment.py
-│   ├── certificates.py
-│   ├── shodan.py
-│   ├── cve.py
-│   ├── reputation.py
-│   └── leaks.py
-├── output/
-│   ├── html.py
-│   └── json.py
-└── utils/
-    ├── http_client.py
-    ├── rate_limiter.py
-    ├── logger.py
-    └── validators.py
-```
+`CRITICAL` ≥ 0.7 · `HIGH` ≥ 0.5 · `MEDIUM` ≥ 0.3 · `LOW` < 0.3
 
 ---
 
@@ -157,10 +101,8 @@ pytest tests/ -v
 
 ## Legal
 
-Queries public, already-indexed data only. No packets are sent to target systems. You are responsible for compliance with applicable laws and each API provider's terms of service.
+Passive only — queries public, already-indexed data. No packets sent to targets. Comply with applicable laws and each provider's ToS.
 
 ---
-
-## License
 
 MIT — see [LICENSE](LICENSE).
