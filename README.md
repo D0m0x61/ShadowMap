@@ -4,7 +4,7 @@ Passive infrastructure mapping and threat intelligence CLI. Given a domain or IP
 
 The HTML report includes an interactive D3.js graph of the infrastructure.
 
-![CI](https://github.com/YOUR_USERNAME/ShadowMap/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/D0m0x61/ShadowMap/actions/workflows/ci.yml/badge.svg)
 ![Python](https://img.shields.io/badge/python-3.9%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
