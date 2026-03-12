@@ -70,6 +70,7 @@ shadowmap example.com
 shadowmap example.com --modules whois subdomains certs ip
 shadowmap 203.0.113.42 --modules ip shodan reputation cves
 shadowmap example.com --no-shodan --no-leaks
+shadowmap example.com --limit-cves 10
 shadowmap example.com --format json --output ~/Desktop/reports
 ```
 
