@@ -24,6 +24,7 @@ examples:
   shadowmap example.com --modules whois subdomains certs ip
   shadowmap 203.0.113.42 --modules whois ip shodan reputation cves
   shadowmap example.com --no-shodan --no-leaks --format html
+  shadowmap example.com --limit-cves 10
         """,
     )
     p.add_argument("target")
@@ -34,6 +35,8 @@ examples:
     p.add_argument("--output", "-o", default=None)
     p.add_argument("--no-shodan", action="store_true")
     p.add_argument("--no-leaks", action="store_true")
+    p.add_argument("--limit-cves", type=int, default=None, metavar="N",
+        help="process only the top N CVEs by EPSS score (default: all)")
     p.add_argument("--version", "-v", action="version", version=f"ShadowMap {__version__}")
     return p
 
@@ -59,7 +62,7 @@ def _empty(target: str, target_type: str) -> Dict[str, Any]:
 
 
 def _pipeline(target: str, target_type: str, modules: List[str],
-              no_shodan: bool, no_leaks: bool) -> Dict[str, Any]:
+              no_shodan: bool, no_leaks: bool, limit_cves: int = None) -> Dict[str, Any]:
     run_all = "all" in modules
     results = _empty(target, target_type)
     is_ip   = target_type == "ip"
@@ -105,6 +108,10 @@ def _pipeline(target: str, target_type: str, modules: List[str],
 
     if active("cves") and cve_ids:
         from shadowmap.modules import cve
+        if limit_cves:
+            epss_map = cve._epss(cve_ids)
+            cve_ids  = sorted(set(cve_ids), key=lambda c: epss_map.get(c, 0.0), reverse=True)[:limit_cves]
+            logger.info(f"[cve] limited to top {limit_cves} CVEs by EPSS score")
         results["cves"] = cve.prioritize(cve_ids)
         results["meta"]["modules_run"].append("cves")
 
@@ -140,7 +147,10 @@ def run() -> None:
     print(f"  output  : {Config.OUTPUT_DIR}\n")
 
     try:
-        results = _pipeline(target, target_type, args.modules, args.no_shodan, args.no_leaks)
+        results = _pipeline(
+            target, target_type, args.modules,
+            args.no_shodan, args.no_leaks, args.limit_cves,
+        )
     except KeyboardInterrupt:
         print("\nInterrupted.", file=sys.stderr)
         sys.exit(130)

@@ -11,6 +11,37 @@ logger = get_logger(__name__)
 _PRIORITY_COLOR = {"CRITICAL": "#dc2626", "HIGH": "#ea580c", "MEDIUM": "#d97706", "LOW": "#16a34a"}
 _RISK_COLOR     = {"HIGH": "#dc2626", "MEDIUM": "#d97706", "LOW": "#f59e0b", "CLEAN": "#16a34a"}
 
+_PORT_CATEGORIES = {
+    "web":       {80, 443, 8080, 8443, 8000, 8888},
+    "remote":    {22, 23, 3389, 5900, 5901},
+    "database":  {3306, 5432, 27017, 6379, 1521, 1433, 9200, 5984},
+    "mail":      {25, 465, 587, 110, 995, 143, 993},
+    "dns":       {53},
+    "ftp":       {21},
+}
+_PORT_CAT_COLOR = {
+    "web":      "#38bdf8",
+    "remote":   "#f87171",
+    "database": "#fb923c",
+    "mail":     "#a78bfa",
+    "dns":      "#34d399",
+    "ftp":      "#fbbf24",
+    "other":    "#64748b",
+}
+
+def _categorize_ports(ports: list) -> Dict[str, list]:
+    cats: Dict[str, list] = {}
+    for p in ports:
+        cat = "other"
+        for name, pset in _PORT_CATEGORIES.items():
+            if p in pset:
+                cat = name
+                break
+        cats.setdefault(cat, []).append(p)
+    return cats
+
+
+
 _CSS = """
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f172a; color: #e2e8f0; padding: 40px 32px; line-height: 1.6; }
@@ -327,6 +358,63 @@ def _card(icon: str, title: str, content: str, count: int = None) -> str:
     return f'<div class="card"><h2>{icon} {title}{cnt}</h2>{content}</div>'
 
 
+def _risk_card(data: Dict) -> str:
+    cves       = data.get("cves", [])
+    rep        = data.get("reputation", [])
+    leaks      = data.get("leaks", [])
+    shodan     = data.get("shodan", [])
+
+    critical   = sum(1 for c in cves if c.get("priority") == "CRITICAL")
+    high_cves  = sum(1 for c in cves if c.get("priority") == "HIGH")
+    high_rep   = sum(1 for r in rep if r.get("risk_level") == "HIGH")
+    kev_count  = sum(1 for c in cves if c.get("in_cisa_kev"))
+    leak_high  = sum(1 for l in leaks if l.get("severity") == "HIGH")
+    open_ports = sum(len(h.get("ports", [])) for h in shodan)
+    tor_ips    = sum(1 for r in rep if r.get("is_tor"))
+
+    # Determine overall risk level
+    if critical > 0 or kev_count > 0 or high_rep > 0:
+        level, color, dot = "HIGH", "#dc2626", "🔴"
+    elif high_cves > 0 or leak_high > 0 or tor_ips > 0:
+        level, color, dot = "MEDIUM", "#d97706", "🟡"
+    else:
+        level, color, dot = "LOW", "#16a34a", "🟢"
+
+    header = (
+        f'<div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">'
+        f'<span style="font-size:40px">{dot}</span>'
+        f'<div>'
+        f'<div style="font-size:22px;font-weight:700;color:{color}">{level} RISK</div>'
+        f'<div style="color:#64748b;font-size:13px">overall assessment</div>'
+        f'</div></div>'
+    )
+
+    metrics = [
+        ("CRITICAL CVEs",    critical,   "#dc2626"),
+        ("HIGH CVEs",        high_cves,  "#ea580c"),
+        ("CISA KEV",         kev_count,  "#dc2626"),
+        ("HIGH Reputation",  high_rep,   "#dc2626"),
+        ("TOR IPs",          tor_ips,    "#f87171"),
+        ("HIGH Leaks",       leak_high,  "#ea580c"),
+        ("Open Ports",       open_ports, "#64748b"),
+    ]
+
+    cards = ""
+    for label, val, col in metrics:
+        c = col if val > 0 else "#334155"
+        t = f'<span style="color:{col};font-weight:700">{val}</span>' if val > 0 else f'<span style="color:#475569">0</span>'
+        cards += (
+            f'<div style="background:#0f172a;border:1px solid #334155;border-radius:8px;'
+            f'padding:12px 16px;text-align:center">'
+            f'<div style="font-size:22px;font-weight:700">{t}</div>'
+            f'<div style="font-size:11px;color:#64748b;margin-top:4px;text-transform:uppercase;letter-spacing:.5px">{label}</div>'
+            f'</div>'
+        )
+
+    grid = f'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px">{cards}</div>'
+    return header + grid
+
+
 def _summary(meta: Dict, data: Dict) -> str:
     rows = [
         ("Target",      meta.get("target", "—")),
@@ -397,11 +485,22 @@ def _certs(data: Dict) -> str:
     return html
 
 
+def _port_badges(ports: list) -> str:
+    cats = _categorize_ports(ports)
+    parts = []
+    for cat, ps in sorted(cats.items()):
+        color = _PORT_CAT_COLOR.get(cat, "#64748b")
+        label = f"{cat}: {', '.join(str(p) for p in sorted(ps))}"
+        parts.append(f'<span style="background:{color}22;color:{color};border:1px solid {color}55;padding:2px 8px;border-radius:4px;font-size:11px;margin:2px;display:inline-block">{label}</span>')
+    return " ".join(parts) if parts else "—"
+
+
 def _shodan(items: List[Dict]) -> str:
     rows = [
         [
-            h.get("ip"), h.get("os") or "—",
-            ", ".join(str(p) for p in h.get("ports", [])) or "—",
+            h.get("ip"),
+            h.get("os") or "—",
+            _port_badges(h.get("ports", [])),
             h.get("isp") or "—",
             str(len(h.get("vulns_from_shodan", []))),
         ]
@@ -488,6 +587,7 @@ def save(data: Dict[str, Any], target: str) -> str:
   </div>
 </header>
 <div class="grid">
+{_card("🎯", "Risk Overview", _risk_card(data))}
 {_card("📋", "Summary", _summary(meta, data))}
 {_graph_card(target, data)}
 {_card("📝", "WHOIS", _whois(data))}
